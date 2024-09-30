@@ -1,13 +1,14 @@
 /******************************************************************************
-* File Name:   ota_app_config.h
+* File Name:   mqtt_client_config.h
 *
-* Description: This file contains the OTA application level configuration macros.
+* Description: This file contains all the configuration macros used by the
+*              MQTT client in this example.
 *
 * Related Document: See README.md
 *
 *
 *******************************************************************************
-* Copyright 2020-2024, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2020-2023, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -39,57 +40,130 @@
 * so agrees to indemnify Cypress against all liability.
 *******************************************************************************/
 
-#ifndef SOURCE_OTA_APP_CONFIG_H_
-#define SOURCE_OTA_APP_CONFIG_H_
+#ifndef MQTT_CLIENT_CONFIG_H_
+#define MQTT_CLIENT_CONFIG_H_
 
-#include "cy_ota_config.h"
-#include "cy_ota_api.h"
+#include "cy_mqtt_api.h"
 
-/***********************************************
- * Connection configuration
- **********************************************/
-/* Name of the Wi-Fi network */
-#define WIFI_SSID           "MY_WIFI_SSID"
+/*******************************************************************************
+* Macros
+********************************************************************************/
 
-/* Password for the Wi-Fi network */
-#define WIFI_PASSWORD       "MY_WIFI_PASSWORD"
+/***************** MQTT CLIENT CONNECTION CONFIGURATION MACROS *****************/
+/* MQTT Broker/Server address and port used for the MQTT connection. */
+#define MQTT_BROKER_ADDRESS               "192.168.1.56"
+#define MQTT_PORT                         ( 8884 )
 
-/* Security type of the Wi-Fi access point. See 'cy_wcm_security_t' structure
- * in "cy_wcm.h" for more details.
+/* Set this macro to 1 if a secure (TLS) connection to the MQTT Broker is
+ * required to be established, else 0.
  */
-#define WIFI_SECURITY       (CY_WCM_SECURITY_WPA2_AES_PSK)
+#define MQTT_SECURE_CONNECTION            ( 1 )
 
-/* MQTT Broker endpoint */
-#define MQTT_BROKER_URL     "192.168.1.56"
+/* Configure the user credentials to be sent as part of MQTT CONNECT packet */
+#define MQTT_USERNAME                     ""
+#define MQTT_PASSWORD                     ""
 
-/* Macro to enable/disable TLS */
-#define ENABLE_TLS          (true)
 
-#if (ENABLE_TLS == true)
-/* MQTT Server Port */
-#define MQTT_SERVER_PORT    (8884)
-#else
-/* MQTT Server Port */
-#define MQTT_SERVER_PORT    (1883)
+/********************* MQTT MESSAGE CONFIGURATION MACROS **********************/
+/* The MQTT topics to be used by the publisher and subscriber. */
+#define MQTT_PUB_TOPIC                    "ledstatus"
+#define MQTT_SUB_TOPIC                    "ledstatus"
+
+/* Set the QoS that is associated with the MQTT publish, and subscribe messages.
+ * Valid choices are 0, 1, and 2. Other values should not be used in this macro.
+ */
+#define MQTT_MESSAGES_QOS                 ( 1 )
+
+/* Configuration for the 'Last Will and Testament (LWT)'. It is an MQTT message
+ * that will be published by the MQTT broker if the MQTT connection is
+ * unexpectedly closed. This configuration is sent to the MQTT broker during
+ * MQTT connect operation and the MQTT broker will publish the Will message on
+ * the Will topic when it recognizes an unexpected disconnection from the client.
+ *
+ * If you want to use the last will message, set this macro to 1 and configure
+ * the topic and will message, else 0.
+ */
+#define ENABLE_LWT_MESSAGE                ( 0 )
+#if ENABLE_LWT_MESSAGE
+    #define MQTT_WILL_TOPIC_NAME          MQTT_PUB_TOPIC "/will"
+    #define MQTT_WILL_MESSAGE             ("MQTT client unexpectedly disconnected!")
 #endif
 
-/* MQTT identifier - less than 17 characters*/
-#define OTA_MQTT_ID         "CY_IOT_DEVICE"
-
-/* Number of MQTT topic filters */
-#define MQTT_TOPIC_FILTER_NUM   (1)
-
-/* MQTT topics */
-const char * my_topics[ MQTT_TOPIC_FILTER_NUM ] =
-{
-        COMPANY_TOPIC_PREPEND "/" CY_TARGET_BOARD_STRING "/" PUBLISHER_DIRECT_TOPIC
-};
-
-/*
- * AWS IoT MQTT Mode - This parameter must be 1 when using the AWS IoT MQTT
- *                     server, 0 otherwise.
+/* MQTT messages which are published on the MQTT_PUB_TOPIC that controls the
+ * device (user LED in this example) state in this code example.
  */
-#define AWS_IOT_MQTT_MODE   (0)
+#define MQTT_DEVICE_ON_MESSAGE            "TURN ON"
+#define MQTT_DEVICE_OFF_MESSAGE           "TURN OFF"
+
+
+/******************* OTHER MQTT CLIENT CONFIGURATION MACROS *******************/
+/* A unique client identifier to be used for every MQTT connection. */
+#define MQTT_CLIENT_IDENTIFIER            "psoc6-mqtt-client"
+
+/* The timeout in milliseconds for MQTT operations in this example. */
+#define MQTT_TIMEOUT_MS                   ( 5000 )
+
+/* The keep-alive interval in seconds used for MQTT ping request. */
+#define MQTT_KEEP_ALIVE_SECONDS           ( 60 )
+
+/* Every active MQTT connection must have a unique client identifier. If you
+ * are using the above 'MQTT_CLIENT_IDENTIFIER' as client ID for multiple MQTT
+ * connections simultaneously, set this macro to 1. The device will then
+ * generate a unique client identifier by appending a timestamp to the
+ * 'MQTT_CLIENT_IDENTIFIER' string. Example: 'psoc6-mqtt-client5927'
+ */
+#define GENERATE_UNIQUE_CLIENT_ID         ( 1 )
+
+/* The longest client identifier that an MQTT server must accept (as defined
+ * by the MQTT 3.1.1 spec) is 23 characters. However some MQTT brokers support
+ * longer client IDs. Configure this macro as per the MQTT broker specification.
+ */
+#define MQTT_CLIENT_IDENTIFIER_MAX_LEN    ( 23 )
+
+/* As per Internet Assigned Numbers Authority (IANA) the port numbers assigned
+ * for MQTT protocol are 1883 for non-secure connections and 8883 for secure
+ * connections. In some cases there is a need to use other ports for MQTT like
+ * port 443 (which is reserved for HTTPS). Application Layer Protocol
+ * Negotiation (ALPN) is an extension to TLS that allows many protocols to be
+ * used over a secure connection. The ALPN ProtocolNameList specifies the
+ * protocols that the client would like to use to communicate over TLS.
+ *
+ * This macro specifies the ALPN Protocol Name to be used that is supported
+ * by the MQTT broker in use.
+ * Note: For AWS IoT, currently "x-amzn-mqtt-ca" is the only supported ALPN
+ *       ProtocolName and it is only supported on port 443.
+ *
+ * Uncomment the below line and specify the ALPN Protocol Name to use this
+ * feature.
+ */
+// #define MQTT_ALPN_PROTOCOL_NAME           "x-amzn-mqtt-ca"
+
+/* Server Name Indication (SNI) is extension to the Transport Layer Security
+ * (TLS) protocol. As required by some MQTT Brokers, SNI typically includes the
+ * hostname in the Client Hello message sent during TLS handshake.
+ *
+ * Uncomment the below line and specify the SNI Host Name to use this extension
+ * as specified by the MQTT Broker.
+ */
+// #define MQTT_SNI_HOSTNAME                 "SNI_HOST_NAME"
+
+/* A Network buffer is allocated for sending and receiving MQTT packets over
+ * the network. Specify the size of this buffer using this macro.
+ *
+ * Note: The minimum buffer size is defined by 'CY_MQTT_MIN_NETWORK_BUFFER_SIZE'
+ * macro in the MQTT library. Please ensure this macro value is larger than
+ * 'CY_MQTT_MIN_NETWORK_BUFFER_SIZE'.
+ */
+#define MQTT_NETWORK_BUFFER_SIZE          ( 2 * CY_MQTT_MIN_NETWORK_BUFFER_SIZE )
+
+/* Maximum MQTT connection re-connection limit. */
+#define MAX_MQTT_CONN_RETRIES            (150u)
+
+/* MQTT re-connection time interval in milliseconds. */
+#define MQTT_CONN_RETRY_INTERVAL_MS      (2000)
+
+
+/**************** MQTT CLIENT CERTIFICATE CONFIGURATION MACROS ****************/
 
 /**********************************************
  * Certificates and Keys - TLS Mode only
@@ -161,7 +235,7 @@ const char * my_topics[ MQTT_TOPIC_FILTER_NUM ] =
         "...........base64 data.........\n" \
         "-----END RSA PRIVATE KEY-------\n"
 */
-#define CLIENT_KEY "-----BEGIN PRIVATE KEY-----\n"\
+#define CLIENT_PRIVATE_KEY "-----BEGIN PRIVATE KEY-----\n"\
 "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDXUtG3L8X3M22g\n"\
 "+Uvc3nwADLQ/zmlmhKhz5MXoLwOHmG5bxR5Zlfpq40aEtQ5eCX7Jn+YfiZEbnINX\n"\
 "ZnSaJ317khO96eXlSynfcgdFxeSxjPuWeGrLndceKu/Ynei8kE7TG+y42CNtTie5\n"\
@@ -190,4 +264,12 @@ const char * my_topics[ MQTT_TOPIC_FILTER_NUM ] =
 "iEGaynUn21L8KpftAuqKfw==\n"\
 "-----END PRIVATE KEY-----\n"
 
-#endif /* SOURCE_OTA_APP_CONFIG_H_ */
+/******************************************************************************
+* Global Variables
+*******************************************************************************/
+extern cy_mqtt_broker_info_t broker_info;
+extern cy_awsport_ssl_credentials_t  *security_info;
+extern cy_mqtt_connect_info_t connection_info;
+
+
+#endif /* MQTT_CLIENT_CONFIG_H_ */

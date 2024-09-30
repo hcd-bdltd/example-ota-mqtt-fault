@@ -1,15 +1,13 @@
 /******************************************************************************
-* File Name:   heap_usage.c
+* File Name:   mqtt_task.h
 *
-* Description: This file contains the code for printing heap usage.
-*              Supports only GCC_ARM compiler. Define PRINT_HEAP_USAGE for
-*              printing the heap usage numbers.
+* Description: This file is the public interface of mqtt_task.c
 *
 * Related Document: See README.md
 *
 *
 *******************************************************************************
-* Copyright 2021-2023, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2020-2023, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -41,61 +39,43 @@
 * so agrees to indemnify Cypress against all liability.
 *******************************************************************************/
 
-/*******************************************************************************
- * Header file includes
- ******************************************************************************/
-#include <stdint.h>
-#include <inttypes.h>
-#include <stdio.h>
+#ifndef MQTT_TASK_H_
+#define MQTT_TASK_H_
 
-/* ARM compiler also defines __GNUC__ */
-#if defined (__GNUC__) && !defined(__ARMCC_VERSION)
-#include <malloc.h>
-#endif /* #if defined (__GNUC__) && !defined(__ARMCC_VERSION) */
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "cy_mqtt_api.h"
 
 
 /*******************************************************************************
- * Macros
- ******************************************************************************/
-#define TO_KB(size_bytes)  ((float)(size_bytes)/1024)
-
-
-/*******************************************************************************
- * Function Definitions
- ******************************************************************************/
+* Macros
+********************************************************************************/
+/* Task parameters for MQTT Client Task. */
+#define MQTT_CLIENT_TASK_PRIORITY       (2)
+#define MQTT_CLIENT_TASK_STACK_SIZE     (1024 * 2)
 
 /*******************************************************************************
-* Function Name: print_heap_usage
-********************************************************************************
-* Summary:
-* Prints the available heap and utilized heap by using mallinfo().
-*
-*******************************************************************************/
-void print_heap_usage(char *msg)
+* Global Variables
+********************************************************************************/
+/* Commands for the MQTT Client Task. */
+typedef enum
 {
-    /* ARM compiler also defines __GNUC__ */
-#if defined(PRINT_HEAP_USAGE) && defined (__GNUC__) && !defined(__ARMCC_VERSION)
-    struct mallinfo mall_info = mallinfo();
+    HANDLE_MQTT_SUBSCRIBE_FAILURE,
+    HANDLE_MQTT_PUBLISH_FAILURE,
+    HANDLE_DISCONNECTION
+} mqtt_task_cmd_t;
 
-    extern uint8_t __HeapBase;  /* Symbol exported by the linker. */
-    extern uint8_t __HeapLimit; /* Symbol exported by the linker. */
+/*******************************************************************************
+ * Extern variables
+ ******************************************************************************/
+extern cy_mqtt_t mqtt_connection;
+extern QueueHandle_t mqtt_task_q;
 
-    uint8_t* heap_base = (uint8_t *)&__HeapBase;
-    uint8_t* heap_limit = (uint8_t *)&__HeapLimit;
-    uint32_t heap_size = (uint32_t)(heap_limit - heap_base);
+/*******************************************************************************
+* Function Prototypes
+********************************************************************************/
+void mqtt_client_task(void *pvParameters);
 
-    printf("\r\n\n********** Heap Usage **********\r\n");
-    printf(msg);
-    printf("\r\nTotal available heap        : %"PRIu32" bytes/%.2f KB\r\n", heap_size, TO_KB(heap_size));
-
-    printf("Maximum heap utilized so far: %u bytes/%.2f KB, %.2f%% of available heap\r\n",
-            mall_info.arena, TO_KB(mall_info.arena), ((float) mall_info.arena * 100u)/heap_size);
-
-    printf("Heap in use at this point   : %u bytes/%.2f KB, %.2f%% of available heap\r\n",
-            mall_info.uordblks, TO_KB(mall_info.uordblks), ((float) mall_info.uordblks * 100u)/heap_size);
-
-    printf("********************************\r\n\n");
-#endif /* #if defined(PRINT_HEAP_USAGE) && defined (__GNUC__) && !defined(__ARMCC_VERSION) */
-}
+#endif /* MQTT_TASK_H_ */
 
 /* [] END OF FILE */

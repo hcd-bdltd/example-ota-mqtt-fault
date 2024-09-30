@@ -44,12 +44,13 @@
 *******************************************************************************/
 
 /* Header file includes */
-#include "cyhal.h"
-#include "cybsp.h"
-#include "cy_retarget_io.h"
-#include "ota_task.h"
-#include "led_task.h"
 #include "cy_log.h"
+#include "cy_retarget_io.h"
+#include "cybsp.h"
+#include "cyhal.h"
+
+#include "led_task.h"
+#include "ota_task.h"
 
 /* FreeRTOS header file */
 #include <FreeRTOS.h>
@@ -74,11 +75,11 @@ static void configure_fault_register(void);
 /*******************************************************************************
 * Global Variables
 ********************************************************************************/
-/* OTA task handle */
-TaskHandle_t ota_task_handle;
-
 /* LED task handle */
 TaskHandle_t led_task_handle;
+
+/* OTA task handle */
+TaskHandle_t ota_task_handle;
 
 /*******************************************************************************
  * Function Name: main
@@ -121,15 +122,6 @@ int main(void)
         CY_ASSERT(0);
     }
 
- #ifdef XMC7200
-    /* Disables and invalidate instruction cache and disable, clean and invalidate data cache for XMC7200 */
-    SCB_DisableICache();
-    SCB_DisableDCache();
-    /* Initialize the XMC7200 flash */
-    Cy_Flash_Init();
-    Cy_Flashc_MainWriteEnable();
- #endif
-
     /* To avoid compiler warning */
     (void)result;
 
@@ -146,23 +138,16 @@ int main(void)
             APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_BUILD);
     printf("===============================================================\n\n");
 
-#ifdef TEST_REVERT
-    printf("===============================================================\n");
-    printf("Testing revert feature, entering infinite loop !!!\n\n");
-    printf("===============================================================\n\n");
-    while(true);
-#endif
-
     /* Update watchdog timer to mark successful start up of application */
     /* Watchdog timer started by the bootloader */
     cyhal_wdt_free(NULL);
     printf("\nWatchdog timer started by the bootloader is now turned off!!!\n\n");
 
     /* Create the tasks */
-    xTaskCreate(ota_task, "OTA TASK", OTA_TASK_STACK_SIZE, NULL,
-                OTA_TASK_PRIORITY, &ota_task_handle);
-    xTaskCreate(led_task, "LED TASK", LED_TASK_STACK_SIZE, NULL,
+    xTaskCreate(led_task, "LED", LED_TASK_STACK_SIZE, NULL,
                 LED_TASK_PRIORITY, &led_task_handle);
+    xTaskCreate(ota_task, "OTA", OTA_TASK_STACK_SIZE, NULL,
+                OTA_TASK_PRIORITY, &ota_task_handle);
 
     /* Start the FreeRTOS scheduler. */
     vTaskStartScheduler();

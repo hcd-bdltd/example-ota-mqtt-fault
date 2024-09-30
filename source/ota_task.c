@@ -53,6 +53,8 @@
 #include "cy_ota_api.h"
 /* OTA storage api */
 #include "cy_ota_storage_api.h"
+/* MQTT client task */
+#include "mqtt_task.h"
 
 /*******************************************************************************
 * Macros
@@ -64,7 +66,7 @@
 #define WIFI_CONN_RETRY_DELAY_MS            (500)
 
 /* Application ID */
-#define APP_ID                              (0)  
+#define APP_ID                              (0)
 
 /*******************************************************************************
 * Forward declaration
@@ -195,6 +197,12 @@ void ota_task(void *args)
         CY_ASSERT(0);
     }
 
+    /* Create the publisher task and cleanup if the operation fails. */
+    if (pdPASS != xTaskCreate(mqtt_client_task, "MQTT_CLIENT", MQTT_CLIENT_TASK_STACK_SIZE, NULL, MQTT_CLIENT_TASK_PRIORITY, NULL))
+    {
+        printf("Failed to create MQTT client task!\n");
+        CY_ASSERT(0);
+    }
     vTaskSuspend( NULL );
  }
 
