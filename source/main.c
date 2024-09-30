@@ -67,6 +67,11 @@
 #define LED_TASK_PRIORITY                   (configMAX_PRIORITIES - 3)
 
 /*******************************************************************************
+* Function Prototypes
+********************************************************************************/
+static void configure_fault_register(void);
+
+/*******************************************************************************
 * Global Variables
 ********************************************************************************/
 /* OTA task handle */
@@ -117,7 +122,7 @@ int main(void)
     }
 
  #ifdef XMC7200
-    /* Disables and invalidate instruction cache and disable, clean and invalidate data cache for XMC7200 */ 
+    /* Disables and invalidate instruction cache and disable, clean and invalidate data cache for XMC7200 */
     SCB_DisableICache();
     SCB_DisableDCache();
     /* Initialize the XMC7200 flash */
@@ -127,12 +132,14 @@ int main(void)
 
     /* To avoid compiler warning */
     (void)result;
-    
+
     /* Enable global interrupts. */
     __enable_irq();
 
     /* default for all logging to WARNING */
     cy_log_init(CY_LOG_WARNING, NULL, NULL);
+
+    configure_fault_register();
 
     printf("\r===============================================================\n");
     printf("TEST Application: OTA Update version: %d.%d.%d\n",
@@ -162,6 +169,85 @@ int main(void)
 
     /* Should never get here. */
     CY_ASSERT(0);
+}
+
+/*******************************************************************************
+* Function Name: configure_fault_register
+********************************************************************************
+* Summary:
+*  This function configures the fault registers(bus fault and usage fault). See
+*  the Arm documentation for more details on the registers.
+*
+*******************************************************************************/
+static void configure_fault_register(void)
+{
+    /* Set SCB->SHCSR.BUSFAULTENA so that BusFault handler instead of the
+     * HardFault handler handles the BusFault.
+     */
+    SCB->SHCSR |= SCB_SHCSR_BUSFAULTENA_Msk;
+
+    /* If ACTLR.DISDEFWBUF is not set to 1, the imprecise BusFault will occur.
+     * For the imprecise BusFault, the fault stack information won't be accurate.
+     * Setting ACTLR.DISDEFWBUF bit to 1 so that bus faults will be precise.
+     * Refer Arm documentation for detailed explanation on precise and imprecise
+     * BusFault.
+     * WARNING: This will decrease the performance because any store to memory
+     * must complete before the processor can execute the next instruction.
+     * Don't enable always, if it is not necessary.
+     */
+    SCnSCB->ACTLR |= SCnSCB_ACTLR_DISDEFWBUF_Msk;
+
+    /* Enable UsageFault when processor executes an divide by 0 */
+    SCB->CCR |= SCB_CCR_DIV_0_TRP_Msk;
+
+    /* Set SCB->SHCSR.USGFAULTENA so that faults such as DIVBYZERO, UNALIGNED,
+     * UNDEFINSTR etc are handled by UsageFault handler instead of the HardFault
+     * handler.
+     */
+    SCB->SHCSR |= SCB_SHCSR_USGFAULTENA_Msk;
+}
+
+/*******************************************************************************
+* Function Name: void Cy_SysLib_ProcessingFault(void)
+********************************************************************************
+* Summary:
+*  This function prints out the stack register at the moment the hard fault
+*  occurred. cy_syslib.c defines this as a  __WEAK function, so this function
+*  replaces the weak function. Cy_SysLib_ProcessingFault() is called at the
+*  end of Cy_SysLib_FaultHandler() function, which is the default exception
+*  handler set for hard faults.
+*
+*******************************************************************************/
+void Cy_SysLib_ProcessingFault(void)
+{
+    printf("\r\nCM4 FAULT!!\r\n");
+    printf("SCB->CFSR = 0x%08lx\r\n", (unsigned long) cy_faultFrame.cfsr.cfsrReg);
+
+    /* If MemManage fault valid bit is set to 1, print MemManage fault address */
+    if ((cy_faultFrame.cfsr.cfsrReg & SCB_CFSR_MMARVALID_Msk)
+            == SCB_CFSR_MMARVALID_Msk)
+    {
+        printf("MemManage Fault! Fault address = 0x%08lx\r\n", (unsigned long)SCB->MMFAR);
+    }
+
+    /* If Bus Fault valid bit is set to 1, print BusFault Address */
+    if ((cy_faultFrame.cfsr.cfsrReg & SCB_CFSR_BFARVALID_Msk)
+            == SCB_CFSR_BFARVALID_Msk)
+    {
+        printf("Bus Fault! \r\nFault address = 0x%08lx\r\n", (unsigned long)SCB->BFAR);
+    }
+
+    /* Print Fault Frame */
+    printf("r0 = 0x%08lx\r\n", (unsigned long)cy_faultFrame.r0);
+    printf("r1 = 0x%08lx\r\n", (unsigned long)cy_faultFrame.r1);
+    printf("r2 = 0x%08lx\r\n", (unsigned long)cy_faultFrame.r2);
+    printf("r3 = 0x%08lx\r\n", (unsigned long)cy_faultFrame.r3);
+    printf("r12 = 0x%08lx\r\n", (unsigned long)cy_faultFrame.r12);
+    printf("lr = 0x%08lx\r\n", (unsigned long)cy_faultFrame.lr);
+    printf("pc = 0x%08lx\r\n", (unsigned long)cy_faultFrame.pc);
+    printf("psr = 0x%08lx\r\n", (unsigned long)cy_faultFrame.psr);
+
+    while (1);
 }
 
 /* [] END OF FILE */
